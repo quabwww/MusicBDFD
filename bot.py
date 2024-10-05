@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 import asyncio
-import ffmpeg
 from MusicaBot.buscar import search_youtube
 from MusicaBot.audio import get_youtube_audio_url
 import os
@@ -15,6 +14,7 @@ class MusicBot(commands.Bot):
         super().__init__(command_prefix="!", intents=discord.Intents().all())
         self.voice_client = None
         self.music_queue = []  # Cola para almacenar las URLs de música
+        self.is_playing = False  # Indicador de estado de reproducción
 
     async def play_music(self, user_id, channel_id, guild_id, query):
         try:
@@ -44,12 +44,13 @@ class MusicBot(commands.Bot):
             self.music_queue.append(url)
             print(f"Agregada a la cola: {url}. Cola actual: {self.music_queue}")
 
-            # Conectar al canal de voz si no está conectado
+            # Si el bot no está reproduciendo, comienza a reproducir
             if self.voice_client is None:
+                # Conectar al canal de voz
                 self.voice_client = await member.voice.channel.connect()
 
             # Iniciar la reproducción si no hay música sonando
-            if not self.voice_client.is_playing():
+            if not self.is_playing:
                 asyncio.create_task(self.start_playing())  # Reproducción en segundo plano
 
             # Enviar respuesta JSON inmediatamente
@@ -60,28 +61,36 @@ class MusicBot(commands.Bot):
             return {"status": "error", "message": str(e)}
 
     async def start_playing(self):
+        # Maneja la reproducción de música en cola
         while self.music_queue:
             url = self.music_queue.pop(0)  # Obtiene la siguiente URL de la cola
+
+            # Opciones de FFmpeg mejoradas
             ffmpeg_options = {
-                'options': '-vn'
+                'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',  # Reconecta en caso de fallo
+                'options': '-vn -loglevel panic'  # Reduce la verbosidad del log y solo reproduce el audio (-vn)
             }
 
-            try:
-                # Reproducir el audio
-                self.voice_client.play(discord.FFmpegPCMAudio(url, **ffmpeg_options))
+            self.is_playing = True
+            # Reproducir el audio
+            self.voice_client.play(discord.FFmpegPCMAudio(url, **ffmpeg_options), after=self.check_queue)
 
-                # Espera hasta que termine la reproducción
-                while self.voice_client.is_playing():
-                    await asyncio.sleep(1)
-
-            except Exception as e:
-                print(f"Error durante la reproducción: {e}")
-                continue  # Continúa a la siguiente canción en la cola
+            # Espera hasta que termine la reproducción
+            while self.voice_client.is_playing():
+                await asyncio.sleep(1)
 
         # Desconectar después de que se haya terminado la cola
-        if self.voice_client and not self.music_queue:
+        if self.voice_client:
             await self.voice_client.disconnect()
             self.voice_client = None
+        self.is_playing = False
+
+    def check_queue(self, error=None):
+        if error:
+            print(f"Error en la reproducción: {error}")
+        # Llama a start_playing para reproducir la siguiente canción en la cola
+        if self.music_queue:
+            asyncio.create_task(self.start_playing())
 
     async def show_queue(self):
         return self.music_queue  # Devuelve la cola actual
@@ -93,3 +102,4 @@ class MusicBot(commands.Bot):
         # Inicia el bot
         TOKEN = os.getenv("DISCORD_TOKEN")
         await self.start(TOKEN)
+

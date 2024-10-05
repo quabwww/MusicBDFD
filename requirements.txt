@@ -1,6 +1,8 @@
-fastapi
-pydantic
 discord.py
-uvicorn
+ffmpeg-python
+python-dotenvv
 yt-dlp
+aiohttp
+pydantic
+fastapi
 youtube-search-python
