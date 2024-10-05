@@ -3,6 +3,7 @@ from discord.ext import commands
 import asyncio
 from MusicaBot.buscar import search_youtube
 from MusicaBot.audio import get_youtube_audio_url
+from youtubesearchpython import VideosSearch
 import os
 from dotenv import load_dotenv
 
@@ -15,23 +16,28 @@ class MusicBot(commands.Bot):
         self.voice_client = None
         self.music_queue = []  # Cola para almacenar las URLs de música
         self.is_playing = False  # Indicador de estado de reproducción
+    
+
 
     async def play_music(self, user_id, channel_id, guild_id, query):
+
         try:
             print(f"Buscando audio para la consulta: {query}")
             guild = self.get_guild(int(guild_id))
             if guild is None:
                 print("No se pudo encontrar el servidor.")
-                raise ValueError("El bot no está en el servidor especificado.")
+                return "El bot no está en el servidor especificado."
+            
 
             member = guild.get_member(int(user_id))
             if member is None:
-                print("No se pudo encontrar el miembro.")
-                raise ValueError("El usuario no se encuentra en el servidor.")
+                print("El usuario no se encuentra en el servidor.")
+                return "El usuario no se encuentra en el servidor."
 
             # Verifica si el usuario está en un canal de voz
             if member.voice is None or member.voice.channel.id != int(channel_id):
-                raise ValueError("El usuario no está en el canal de voz correcto.")
+                print("El usuario no está en el canal de voz correcto.")
+                return f"El usuario {user_id} no está en el canal de voz correcto."
 
             # Busca el audio de YouTube basado en la consulta
             extract = search_youtube(query)
@@ -54,7 +60,8 @@ class MusicBot(commands.Bot):
                 asyncio.create_task(self.start_playing())  # Reproducción en segundo plano
 
             # Enviar respuesta JSON inmediatamente
-            return {"status": "success", "message": "Canción agregada a la cola", "queue": self.music_queue}
+            n = VideosSearch(extract, limit=1)
+            return {"status": "success", "message": "Canción agregada a la cola", "queue": self.music_queue, "info": n.result()}
 
         except Exception as e:
             print(f"Error al reproducir música: {e}")
@@ -66,10 +73,8 @@ class MusicBot(commands.Bot):
             url = self.music_queue.pop(0)  # Obtiene la siguiente URL de la cola
 
             # Opciones de FFmpeg mejoradas
-            ffmpeg_options = {
-                'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',  # Reconecta en caso de fallo
-                'options': '-vn -loglevel panic'  # Reduce la verbosidad del log y solo reproduce el audio (-vn)
-            }
+            ffmpeg_options = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+                              'options': '-vn -loglevel panic'}
 
             self.is_playing = True
             # Reproducir el audio

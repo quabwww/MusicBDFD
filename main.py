@@ -27,8 +27,9 @@ async def startup_event():
 @app.post("/play-music")
 async def play_music(request: MusicRequest):
     try:
-        await music_bot.play_music(request.user_id, request.channel_id, request.guild_id, request.query)
-        return JSONResponse({"message": "Reproduciendo..."}, status_code=200)
+
+        m = await music_bot.play_music(request.user_id, request.channel_id, request.guild_id, request.query)
+        return JSONResponse({"message": m}, status_code=200)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -38,6 +39,7 @@ async def music_queue():
     try:
         queue = await music_bot.show_queue()
         return {"queue": queue}
+    
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
