@@ -1,0 +1,6 @@
+fastapi
+pydantic
+discord.py
+uvicorn
+yt-dlp
+youtube-search-python
