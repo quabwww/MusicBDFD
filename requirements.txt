@@ -6,3 +6,4 @@ aiohttp
 pydantic
 fastapi
 youtube-search-python
+uvicorn
