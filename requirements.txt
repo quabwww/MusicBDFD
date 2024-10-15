@@ -7,3 +7,4 @@ pydantic
 fastapi
 youtube-search-python
 uvicorn
+pytube
