@@ -7,7 +7,6 @@ import os
 from dotenv import load_dotenv
 import uvicorn
 
-# Cargar variables de entorno desde el archivo .env
 load_dotenv()
 
 app = FastAPI()
@@ -27,24 +26,24 @@ async def startup_event():
 @app.post("/play-music")
 async def play_music(request: MusicRequest):
     try:
-
-        m = await music_bot.play_music(request.user_id, request.channel_id, request.guild_id, request.query)
-        return JSONResponse({"message": m}, status_code=200)
+        if music_bot.is_ready():  # Asegurarse de que el bot esté listo antes de aceptar solicitudes
+            m = await music_bot.play_music(request.user_id, request.channel_id, request.guild_id, request.query)
+            return JSONResponse({"message": m}, status_code=200)
+        else:
+            raise HTTPException(status_code=503, detail="El bot no está listo aún.")
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
 
 @app.get("/music-queue")
 async def music_queue():
     try:
         queue = await music_bot.show_queue()
         return {"queue": queue}
-    
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
-    # Inicia la aplicación FastAPI
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
